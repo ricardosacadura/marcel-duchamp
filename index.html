@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marcel Duchamp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  /* Layout: the name at top center, a quote at bottom center, artworks drifting around them. */
+  :root { --bg: #ffffff; --fg: #1a1a1a; --font: Baskerville, "Baskerville Old Face", "Libre Baskerville", Georgia, serif; --fade: 1s; --type-size: clamp(0.275rem, 2.5vw, 1.275rem); --title-tracking: 0.2em; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000000; --fg: #e6e6e6; color-scheme: dark; } }
+  :root[data-theme="dark"] { --bg: #000000; --fg: #e6e6e6; color-scheme: dark; }
+  html, body { height: 100%; }
+  body {
+    box-sizing: border-box;
+    margin: 0;
+    display: grid;
+    place-items: start center;
+    padding-top: 24px;
+    background: var(--bg);
+    color: var(--fg);
+    padding-inline: 16px;
+    overflow: hidden;
+  }
+  h1 {
+    position: relative;
+    z-index: 2;
+    margin: 0;
+    font-family: var(--font);
+    font-weight: 400;
+    font-size: var(--type-size);
+    letter-spacing: var(--title-tracking);
+    margin-right: calc(-1 * var(--title-tracking));
+    text-align: center;
+    white-space: nowrap;
+    cursor: default;
+  }
+
+  /* Quotes: same size as the name, wrapping past a quarter of the window width. */
+  .quote {
+    position: fixed;
+    left: 50%;
+    bottom: calc(24px + 12px + 24px); /* page edge + credit line + gap */
+    z-index: 2;
+    width: max-content;
+    max-width: 25vw;
+    margin: 0;
+    transform: translateX(-50%);
+    font-family: var(--font);
+    font-style: italic;
+    font-weight: 400;
+    font-size: var(--type-size);
+    text-align: center;
+    text-wrap: balance;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+  .quote.hidden { opacity: 0; }
+
+  /* Credit: small grotesque line at bottom center, under the quote. */
+  .credit {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    height: 12px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .credit svg { width: 11px; height: 11px; fill: none; stroke: #d97757; stroke-width: 2.2; stroke-linecap: round; }
+
+  /* Thumbnails: the image alone, no frame, no caption. */
+  .work {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: block;
+    opacity: 0;
+    transition: opacity var(--fade) ease;
+    will-change: transform;
+  }
+  .work.shown { opacity: 1; }
+  .work img { display: block; width: 100%; height: 100%; transition: transform 0.25s ease; }
+  /* Hover: lift the image above the others and enlarge it slightly. */
+  .work:hover { z-index: 1; }
+  .work:hover img { transform: scale(1.12); }
+</style>
+<h1>MARCEL DUCHAMP</h1>
+<p class="quote" id="quote"></p>
+<a class="credit" href="https://claude.ai" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12L22.40 13.46M12 12L17.91 16.62M12 12L15.93 21.74M12 12L10.96 19.43M12 12L5.54 20.27M12 12L5.05 14.81M12 12L1.60 10.54M12 12L6.09 7.38M12 12L8.07 2.26M12 12L13.04 4.57M12 12L18.46 3.73M12 12L18.95 9.19"/></svg>Built with Claude</a>
+<script>
+  // Works by Marcel Duchamp on Wikimedia Commons.
+  // Each thumbnail links to the Commons page it was taken from.
+  const works = [
+    { title: "50 cc of Paris Air", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4b/50_cc_of_Paris_Air.jpg/500px-50_cc_of_Paris_Air.jpg", page: "https://commons.wikimedia.org/wiki/File:50_cc_of_Paris_Air.jpg", w: 330, h: 276 },
+    { title: "Bicycle Wheel", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/14/Bicycle_Wheel.jpg/500px-Bicycle_Wheel.jpg", page: "https://commons.wikimedia.org/wiki/File:Bicycle_Wheel.jpg", w: 330, h: 440 },
+    { title: "Bottle Rack", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/ce/Bottle_Rack_-_Marcel_Duchamp.jpg/500px-Bottle_Rack_-_Marcel_Duchamp.jpg", page: "https://commons.wikimedia.org/wiki/File:Bottle_Rack_-_Marcel_Duchamp.jpg", w: 330, h: 367 },
+    { title: "Boîte-en-valise", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7b/Bo%C3%AEte_en_valise_de_Marcel_Duchamp.jpg/500px-Bo%C3%AEte_en_valise_de_Marcel_Duchamp.jpg", page: "https://commons.wikimedia.org/wiki/File:Bo%C3%AEte_en_valise_de_Marcel_Duchamp.jpg", w: 330, h: 211 },
+    { title: "The Green Box", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/30/Caja_verde_de_Marcel_Duchamp.jpg/500px-Caja_verde_de_Marcel_Duchamp.jpg", page: "https://commons.wikimedia.org/wiki/File:Caja_verde_de_Marcel_Duchamp.jpg", w: 330, h: 243 },
+    { title: "Chocolate Grinder (No. 1)", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ae/Chocolate_Grinder_%28No._1%29.jpg/500px-Chocolate_Grinder_%28No._1%29.jpg", page: "https://commons.wikimedia.org/wiki/File:Chocolate_Grinder_(No._1).jpg", w: 330, h: 440 },
+    { title: "Chocolate Grinder (No. 2)", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/67/Chocolate_Grinder_No._2.jpg/500px-Chocolate_Grinder_No._2.jpg", page: "https://commons.wikimedia.org/wiki/File:Chocolate_Grinder_No._2.jpg", w: 330, h: 399 },
+    { title: "Comb", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b8/Comb_by_Marcel_Duchamp.jpg/500px-Comb_by_Marcel_Duchamp.jpg", page: "https://commons.wikimedia.org/wiki/File:Comb_by_Marcel_Duchamp.jpg", w: 330, h: 334 },
+    { title: "Allégorie de genre (George Washington)", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d7/George_Washington_%28Allegorie_de_genre%29.jpg/500px-George_Washington_%28Allegorie_de_genre%29.jpg", page: "https://commons.wikimedia.org/wiki/File:George_Washington_(Allegorie_de_genre).jpg", w: 330, h: 425 },
+    { title: "Hat Rack", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Hat_Rack.jpg/500px-Hat_Rack.jpg", page: "https://commons.wikimedia.org/wiki/File:Hat_Rack.jpg", w: 330, h: 422 },
+    { title: "In Advance of the Broken Arm", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0e/In_Advance_of_the_Broken_Arm_by_Marcel_Duchamp.jpg/500px-In_Advance_of_the_Broken_Arm_by_Marcel_Duchamp.jpg", page: "https://commons.wikimedia.org/wiki/File:In_Advance_of_the_Broken_Arm_by_Marcel_Duchamp.jpg", w: 330, h: 440 },
+    { title: "Fountain, photographed by Alfred Stieglitz", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dd/Marcel_Duchamp%2C_1917%2C_Fountain%2C_photograph_by_Alfred_Stieglitz.jpg/500px-Marcel_Duchamp%2C_1917%2C_Fountain%2C_photograph_by_Alfred_Stieglitz.jpg", page: "https://commons.wikimedia.org/wiki/File:Marcel_Duchamp,_1917,_Fountain,_photograph_by_Alfred_Stieglitz.jpg", w: 330, h: 431 },
+    { title: "Belle Haleine, Eau de Voilette", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3c/Marcel_Duchamp_%28Rrose_Selavy%29%2C_Man_Ray%2C_1920-21%2C_Belle_Haleine%2C_Eau_de_Voilette.jpg/500px-Marcel_Duchamp_%28Rrose_Selavy%29%2C_Man_Ray%2C_1920-21%2C_Belle_Haleine%2C_Eau_de_Voilette.jpg", page: "https://commons.wikimedia.org/wiki/File:Marcel_Duchamp_(Rrose_Selavy),_Man_Ray,_1920-21,_Belle_Haleine,_Eau_de_Voilette.jpg", w: 330, h: 427 },
+    { title: "Monte Carlo Bond", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7c/Monte_Carlo_Bond_1924.jpg/500px-Monte_Carlo_Bond_1924.jpg", page: "https://commons.wikimedia.org/wiki/File:Monte_Carlo_Bond_1924.jpg", w: 330, h: 464 },
+    { title: "Network of Stoppages", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f6/Network_of_Stoppages.jpg/500px-Network_of_Stoppages.jpg", page: "https://commons.wikimedia.org/wiki/File:Network_of_Stoppages.jpg", w: 330, h: 249 },
+    { title: "The Blind Man", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/88/The_blind_man_MET_b1120124_001.jpg/500px-The_blind_man_MET_b1120124_001.jpg", page: "https://commons.wikimedia.org/wiki/File:The_blind_man_MET_b1120124_001.jpg", w: 330, h: 483 },
+    { title: "Trébuchet", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/13/Trebuchet_by_Marcel_Duchamp.jpg/500px-Trebuchet_by_Marcel_Duchamp.jpg", page: "https://commons.wikimedia.org/wiki/File:Trebuchet_by_Marcel_Duchamp.jpg", w: 330, h: 440 },
+    { title: "VVV cover", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bb/VVV_cover%2C_March_1943.jpg/500px-VVV_cover%2C_March_1943.jpg", page: "https://commons.wikimedia.org/wiki/File:VVV_cover,_March_1943.jpg", w: 330, h: 428 },
+    { title: "View magazine cover", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d5/View_magazine_March_1945_front_cover.jpg/500px-View_magazine_March_1945_front_cover.jpg", page: "https://commons.wikimedia.org/wiki/File:View_magazine_March_1945_front_cover.jpg", w: 330, h: 437 },
+    { title: "Young Cherry Trees Secured Against Hares", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c7/Young_Cherry_Trees_Secured_Against_Hares.jpg/500px-Young_Cherry_Trees_Secured_Against_Hares.jpg", page: "https://commons.wikimedia.org/wiki/File:Young_Cherry_Trees_Secured_Against_Hares.jpg", w: 330, h: 488 },
+    { title: "Bicycle Wheel (1964 version)", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/51/Bicycle_wheel_by_Marcel_Duchamp%2C_1913%2C_this_version_1964_-_Galleria_nazionale_d%27arte_moderna_-_Rome%2C_Italy_-_DSC05467.jpg/500px-Bicycle_wheel_by_Marcel_Duchamp%2C_1913%2C_this_version_1964_-_Galleria_nazionale_d%27arte_moderna_-_Rome%2C_Italy_-_DSC05467.jpg", page: "https://commons.wikimedia.org/wiki/File:Bicycle_wheel_by_Marcel_Duchamp,_1913,_this_version_1964_-_Galleria_nazionale_d%27arte_moderna_-_Rome,_Italy_-_DSC05467.jpg", w: 330, h: 495 },
+    { title: "Dada 1916–1923", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/Dada_1916-1923.jpg/500px-Dada_1916-1923.jpg", page: "https://commons.wikimedia.org/wiki/File:Dada_1916-1923.jpg", w: 330, h: 501 },
+    { title: "Fountain (replica)", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Fountain%2C_Marcel_Duchamp%2C_Tate_Modern%2C_London_01.jpg/500px-Fountain%2C_Marcel_Duchamp%2C_Tate_Modern%2C_London_01.jpg", page: "https://commons.wikimedia.org/wiki/File:Fountain,_Marcel_Duchamp,_Tate_Modern,_London_01.jpg", w: 330, h: 549 },
+    { title: "Portrait of the Artist's Father", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/93/Portrait_d%27homme_%28Portrait_d%27Eug%C3%A8ne_Duchamp%2C_p%C3%A8re_de_l%27artiste%29.jpg/500px-Portrait_d%27homme_%28Portrait_d%27Eug%C3%A8ne_Duchamp%2C_p%C3%A8re_de_l%27artiste%29.jpg", page: "https://commons.wikimedia.org/wiki/File:Portrait_d%27homme_(Portrait_d%27Eug%C3%A8ne_Duchamp,_p%C3%A8re_de_l%27artiste).jpg", w: 330, h: 413 },
+    { title: "Rotary Demisphere", image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/RotaryDemisphereMarcelDuchampManRay.jpg/500px-RotaryDemisphereMarcelDuchampManRay.jpg", page: "https://commons.wikimedia.org/wiki/File:RotaryDemisphereMarcelDuchampManRay.jpg", w: 330, h: 475 },
+    { title: "Rrose Sélavy", image: "https://upload.wikimedia.org/wikipedia/commons/d/de/Rrose_S%C3%A9lavy_%28Marcel_Duchamp%29%2C_1921_photograph_by_Man_Ray.jpg", page: "https://commons.wikimedia.org/wiki/File:Rrose_S%C3%A9lavy_(Marcel_Duchamp),_1921_photograph_by_Man_Ray.jpg", w: 330, h: 422 },
+  ];
+
+  const ON_SCREEN = 10;        // images visible at a time
+  const LIFETIME = 30;         // seconds before an image fades out
+  const FADE = 1;              // seconds, matches --fade
+  const STAGGER = 3;           // extra seconds between first-batch exits, so they don't all leave together
+  const SPEED = [30, 70];      // px per second
+  const stillMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const active = [];           // sprites currently on screen
+  const failed = new Set();    // works whose image would not load
+  let lastShown = new Map();   // work image -> time last shown, to rotate through the whole pool
+  let clock = 0;
+
+  const longestSide = () => Math.min(260, window.innerWidth * 0.4);
+
+  function pickWork() {
+    const onScreen = new Set(active.map((s) => s.work.image));
+    const candidates = works.filter((w) => !onScreen.has(w.image) && !failed.has(w.image));
+    if (!candidates.length) return null;
+    // Prefer works not seen for the longest time, with a little randomness.
+    candidates.sort((a, b) => (lastShown.get(a.image) ?? -Infinity) - (lastShown.get(b.image) ?? -Infinity));
+    const pool = candidates.slice(0, Math.max(1, Math.ceil(candidates.length / 2)));
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function spawn(extraLife = 0) {
+    const work = pickWork();
+    if (!work) return;
+    lastShown.set(work.image, clock);
+
+    const scale = longestSide() / Math.max(work.w, work.h);
+    const w = Math.round(work.w * scale);
+    const h = Math.round(work.h * scale);
+
+    const link = document.createElement("a");
+    link.className = "work";
+    link.href = work.page;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.style.width = w + "px";
+    link.style.height = h + "px";
+
+    const img = document.createElement("img");
+    img.alt = work.title + ", Marcel Duchamp";
+    img.width = w;
+    img.height = h;
+    img.decoding = "async";
+    img.src = work.image;
+    link.append(img);
+
+    const angle = Math.random() * Math.PI * 2;
+    const speed = SPEED[0] + Math.random() * (SPEED[1] - SPEED[0]);
+    const sprite = {
+      work, link, w, h,
+      x: Math.random() * Math.max(0, window.innerWidth - w),
+      y: Math.random() * Math.max(0, window.innerHeight - h),
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      age: 0,
+      life: LIFETIME + extraLife,
+      hovered: false,
+      leaving: false,
+    };
+
+    link.addEventListener("mouseenter", () => (sprite.hovered = true));
+    link.addEventListener("mouseleave", () => (sprite.hovered = false));
+    img.addEventListener("load", () => link.classList.add("shown"));
+    img.addEventListener("error", () => {
+      // Image unavailable: retire this work and bring in another.
+      failed.add(work.image);
+      remove(sprite);
+      spawn();
+    });
+
+    place(sprite);
+    document.body.append(link);
+    active.push(sprite);
+  }
+
+  function remove(sprite) {
+    const i = active.indexOf(sprite);
+    if (i !== -1) active.splice(i, 1);
+    sprite.link.remove();
+  }
+
+  function retire(sprite) {
+    sprite.leaving = true;
+    sprite.link.classList.remove("shown");
+    setTimeout(() => remove(sprite), FADE * 1000);
+    spawn();
+  }
+
+  function place(s) {
+    s.link.style.transform = `translate(${s.x}px, ${s.y}px)`;
+  }
+
+  function step(dt) {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    for (const s of [...active]) {
+      // The clock and the motion both hold while the pointer rests on an image.
+      if (s.hovered) continue;
+
+      if (!s.leaving) {
+        s.age += dt;
+        if (s.age >= s.life) retire(s);
+      }
+      if (stillMotion) continue;
+
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      if (s.x <= 0) { s.x = 0; s.vx = Math.abs(s.vx); }
+      if (s.x + s.w >= W) { s.x = Math.max(0, W - s.w); s.vx = -Math.abs(s.vx); }
+      if (s.y <= 0) { s.y = 0; s.vy = Math.abs(s.vy); }
+      if (s.y + s.h >= H) { s.y = Math.max(0, H - s.h); s.vy = -Math.abs(s.vy); }
+      place(s);
+    }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    // Cap the step so a backgrounded tab doesn't jump images or expire them all at once.
+    const dt = Math.min((now - last) / 1000, 0.1);
+    last = now;
+    clock += dt;
+    step(dt);
+    requestAnimationFrame(frame);
+  }
+
+  for (let i = 0; i < ON_SCREEN; i++) spawn(i * STAGGER);
+  requestAnimationFrame(frame);
+
+  // Title: on hover, spread the letters until the first and last touch the side margins.
+  // Letter-spacing follows a damped spring, so it overshoots and settles like elastic.
+  const title = document.querySelector("h1");
+  const titleRange = document.createRange();
+  titleRange.selectNodeContents(title);
+  const SPRING = { stiffness: 170, damping: 11 };
+  const spread = { value: 0, velocity: 0, hovered: false, running: false };
+
+  // Resting spacing, from --title-tracking, in px at the current font size.
+  function restSpacing() {
+    const tracking = getComputedStyle(document.documentElement).getPropertyValue("--title-tracking");
+    return parseFloat(tracking) * parseFloat(getComputedStyle(title).fontSize);
+  }
+
+  function applySpread() {
+    title.style.letterSpacing = spread.value + "px";
+    title.style.marginRight = -spread.value + "px";
+  }
+
+  function spreadTarget() {
+    const rest = restSpacing();
+    if (!spread.hovered) return rest;
+    const n = title.textContent.length;
+    const natural = titleRange.getBoundingClientRect().width - n * spread.value;
+    const margin = parseFloat(getComputedStyle(document.body).paddingLeft);
+    const available = document.documentElement.clientWidth - 2 * margin;
+    // Spacing is added after every letter; the last one is cancelled with a negative margin below.
+    return Math.max(rest, (available - natural) / (n - 1));
+  }
+
+  function spreadStep(now, last) {
+    const dt = Math.min((now - last) / 1000, 1 / 30);
+    const target = spreadTarget();
+    const force = SPRING.stiffness * (target - spread.value) - SPRING.damping * spread.velocity;
+    spread.velocity += force * dt;
+    spread.value += spread.velocity * dt;
+    // Never squeeze the letters tighter than at rest: rebound instead of overlapping.
+    const rest = restSpacing();
+    if (spread.value < rest) { spread.value = rest; spread.velocity = -spread.velocity * 0.3; }
+    const settled = Math.abs(target - spread.value) < 0.05 && Math.abs(spread.velocity) < 0.05;
+    if (settled) { spread.value = target; spread.velocity = 0; }
+    applySpread();
+    if (settled) { spread.running = false; return; }
+    requestAnimationFrame((t) => spreadStep(t, now));
+  }
+
+  function setSpread(hovered) {
+    spread.hovered = hovered;
+    if (spread.running || stillMotion) {
+      if (stillMotion) { spread.value = spreadTarget(); applySpread(); }
+      return;
+    }
+    spread.running = true;
+    const start = performance.now();
+    requestAnimationFrame((t) => spreadStep(t, start));
+  }
+
+  title.addEventListener("mouseenter", () => setSpread(true));
+  title.addEventListener("mouseleave", () => setSpread(false));
+  window.addEventListener("resize", () => setSpread(spread.hovered));
+  spread.value = restSpacing();
+  applySpread();
+
+  // Quotes by Duchamp, wording as given on Wikiquote (en.wikiquote.org/wiki/Marcel_Duchamp).
+  const quotes = [
+    "Anything becomes beautiful if you look at it long enough.",          // Sandler, The New York School, 1978
+    "I wanted to put painting once again at the service of the mind.",    // Kuh, The Artist's Voice, 1962
+    "The creative act is not performed by the artist alone.",            // The Creative Act, 1957
+    "I am still a victim of chess.",                                      // Time, 10 March 1952
+    "I wanted to kill art for myself.",                                   // Artforum, November 1968
+    "Bad art is still art.",                                              // The Creative Act, 1957
+    "I was interested in ideas – not merely in visual products.",         // Kuh, The Artist's Voice, 1962
+    "Painting is over and done with.",                                    // to Brâncuși at the Paris Aviation Show
+    "While all artists are not chess players, all chess players are artists.", // McShine, Marcel Duchamp, 1989
+    "He CHOSE it.",                                                       // The Richard Mutt Case, The Blind Man, 1917
+    "I wanted to get away from the physical act of painting.",            // Looking at Dada, MoMA, 2006
+    "Art is a habit forming drug.",                                       // Apropos of “Readymades”, MoMA, 1961
+    "Chess is much purer than art in its social position.",              // Time, 10 March 1952
+    "At least chess players don’t talk.",                                 // letter to Yvonne Chastel, 1949
+  ];
+  const QUOTE_EVERY = 10;      // seconds per quote
+  const quoteEl = document.getElementById("quote");
+  let q = 0;
+  quoteEl.textContent = quotes[q];
+  setInterval(() => {
+    quoteEl.classList.add("hidden");
+    setTimeout(() => {
+      q = (q + 1) % quotes.length;
+      quoteEl.textContent = quotes[q];
+      quoteEl.classList.remove("hidden");
+    }, 600);
+  }, QUOTE_EVERY * 1000);
+</script>
